@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { Html5Qrcode } from "html5-qrcode";
-import { Camera, Check, Copy, AlertCircle, RefreshCw } from "lucide-react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Html5Qrcode, CameraDevice } from "html5-qrcode";
+import { Camera, Check, AlertCircle, RefreshCw } from "lucide-react";
 
 export default function Home() {
-  const [devices, setDevices] = useState<any[]>([]);
+  const [devices, setDevices] = useState<CameraDevice[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
   const [isScanning, setIsScanning] = useState(false);
   const [status, setStatus] = useState("Idle");
@@ -19,38 +19,7 @@ export default function Home() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  useEffect(() => {
-    async function getCameras() {
-      try {
-        const devices = await Html5Qrcode.getCameras();
-        if (devices && devices.length) {
-          setDevices(devices);
-          
-          const telephotoCam = devices.find(d => 
-            d.label.toLowerCase().includes("telephoto") || 
-            d.label.toLowerCase().includes("back 1") ||
-            d.label.toLowerCase().includes("lens 2")
-          );
-
-          if (telephotoCam) {
-            setSelectedDeviceId(telephotoCam.id);
-          } else {
-            setSelectedDeviceId(devices[devices.length - 1].id);
-          }
-        }
-      } catch (err) {
-        console.error(err);
-        setErrorMsg("Failed to access cameras. Please ensure permissions are granted and you are on HTTPS.");
-      }
-    }
-    getCameras();
-
-    return () => {
-      stopScanner();
-    };
-  }, []);
-
-  const stopScanner = async () => {
+  const stopScanner = useCallback(async () => {
     if (scannerRef.current && scannerRef.current.isScanning) {
       try {
         await scannerRef.current.stop();
@@ -61,9 +30,9 @@ export default function Home() {
       setIsScanning(false);
       setStatus("Idle");
     }
-  };
+  }, []);
 
-  const handleScanSuccess = async (decodedText: string) => {
+  const handleScanSuccess = useCallback(async (decodedText: string) => {
     setStatus("QR Code detected!");
     await stopScanner();
     
@@ -106,13 +75,45 @@ export default function Home() {
           }
         }, 1000);
       } catch (err) {
+        console.error("Clipboard copy failed", err);
         showToast("Failed to copy text", "error");
         window.location.href = "gpay://";
       }
     }
-  };
+  }, [stopScanner]);
 
-  const requestPermissionsAndLoadDevices = async () => {
+  useEffect(() => {
+    async function getCameras() {
+      try {
+        const cameras = await Html5Qrcode.getCameras();
+        if (cameras && cameras.length) {
+          setDevices(cameras);
+          
+          const telephotoCam = cameras.find(d => 
+            d.label.toLowerCase().includes("telephoto") || 
+            d.label.toLowerCase().includes("back 1") ||
+            d.label.toLowerCase().includes("lens 2")
+          );
+
+          if (telephotoCam) {
+            setSelectedDeviceId(telephotoCam.id);
+          } else {
+            setSelectedDeviceId(cameras[cameras.length - 1].id);
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        setErrorMsg("Failed to access cameras. Please ensure permissions are granted and you are on HTTPS.");
+      }
+    }
+    getCameras();
+
+    return () => {
+      stopScanner();
+    };
+  }, [stopScanner]);
+
+  const requestPermissionsAndLoadDevices = async (): Promise<string | null> => {
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error("Your browser does not support camera access or you are not on HTTPS.");
@@ -141,10 +142,11 @@ export default function Home() {
         return updatedDevices[updatedDevices.length - 1].id;
       }
       return null;
-    } catch (err: any) {
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       console.error("Permission denied or no camera found", err);
-      alert(`Camera Error: ${err.message || err}`);
-      setErrorMsg(`Camera Error: ${err.message || err}`);
+      alert(`Camera Error: ${message}`);
+      setErrorMsg(`Camera Error: ${message}`);
       return null;
     }
   };
@@ -159,7 +161,7 @@ export default function Home() {
       targetDeviceId = await requestPermissionsAndLoadDevices() || "";
       if (!targetDeviceId) {
         setStatus("Idle");
-        return; // Error message is set by requestPermissionsAndLoadDevices
+        return;
       }
     }
 
@@ -179,22 +181,23 @@ export default function Home() {
         videoConstraints: { 
           deviceId: { exact: targetDeviceId }, 
           advanced: [{ zoom: 2.0 }] 
-        }
+        } as unknown as MediaTrackConstraints
       };
 
       await html5QrCode.start(
         targetDeviceId,
-        config as any,
+        config,
         handleScanSuccess,
-        () => {} // ignore constant frame errors
+        () => {} // ignore frame scan misses
       );
       
       setIsScanning(true);
       setStatus("Scanning...");
 
-    } catch (err: any) {
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       console.error(err);
-      setErrorMsg(`Error starting scanner: ${err?.message || err}`);
+      setErrorMsg(`Error starting scanner: ${message}`);
       setStatus("Error");
     }
   };
