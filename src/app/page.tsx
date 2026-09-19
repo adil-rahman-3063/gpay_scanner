@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Html5Qrcode, CameraDevice } from "html5-qrcode";
 import { Camera, Check, AlertCircle, RefreshCw } from "lucide-react";
+import { parseEmvcoQr } from "@/utils/emvco";
+import pkg from "../../package.json";
 
 export default function Home() {
   const [devices, setDevices] = useState<CameraDevice[]>([]);
@@ -53,11 +55,20 @@ export default function Home() {
     if (cleanPayload.startsWith("upi://")) {
       // Case 1: Standard UPI Link
       redirectWithGpayIntent(cleanPayload);
-    } else if (cleanPayload.startsWith("000201") || /^\d+$/.test(cleanPayload)) {
-      // Case 2: Bank / EMVCo / BharatQR
-      const encodedPayload = encodeURIComponent(cleanPayload);
-      const url = `upi://pay?qrPayload=${encodedPayload}`;
-      redirectWithGpayIntent(url);
+    } else if (
+      cleanPayload.startsWith("000201") || 
+      cleanPayload.startsWith("000202") || 
+      /^\d{20,}$/.test(cleanPayload)
+    ) {
+      // Case 2: Bank / EMVCo / BharatQR (e.g. South Indian Bank, HDFC, SBI, Paytm BharatQR)
+      const parsedUpi = parseEmvcoQr(cleanPayload);
+      if (parsedUpi) {
+        redirectWithGpayIntent(parsedUpi);
+      } else {
+        const encodedPayload = encodeURIComponent(cleanPayload);
+        const url = `upi://pay?qrPayload=${encodedPayload}`;
+        redirectWithGpayIntent(url);
+      }
     } else if (cleanPayload.startsWith("http://") || cleanPayload.startsWith("https://")) {
       // Case 3: Merchant URL
       window.location.href = cleanPayload;
@@ -203,7 +214,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col items-center py-10 px-4 font-sans selection:bg-teal-500/30">
+    <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col items-center py-10 px-4 font-sans selection:bg-teal-500/30 justify-between">
       <div className="w-full max-w-md space-y-8">
         
         <div className="text-center space-y-2">
@@ -303,6 +314,12 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      <footer className="w-full text-center py-4">
+        <span className="text-xs text-neutral-600 font-mono tracking-wider">
+          v{pkg.version}
+        </span>
+      </footer>
 
       {toast && (
         <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full flex items-center gap-2 shadow-2xl animate-in fade-in slide-in-from-bottom-4 ${
