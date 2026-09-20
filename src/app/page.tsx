@@ -22,13 +22,16 @@ export default function Home() {
   };
 
   const stopScanner = useCallback(async () => {
-    if (scannerRef.current && scannerRef.current.isScanning) {
-      try {
-        await scannerRef.current.stop();
+    try {
+      if (scannerRef.current) {
+        if (scannerRef.current.isScanning) {
+          await scannerRef.current.stop();
+        }
         scannerRef.current.clear();
-      } catch (err) {
-        console.error("Error stopping scanner", err);
       }
+    } catch (err) {
+      console.error("Error stopping scanner", err);
+    } finally {
       setIsScanning(false);
       setStatus("Idle");
     }
