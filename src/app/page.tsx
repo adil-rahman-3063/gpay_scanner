@@ -76,8 +76,10 @@ export default function Home() {
       const url = `upi://pay?qrPayload=${encodedPayload}`;
       redirectWithGpayIntent(url);
     } else if (cleanPayload.startsWith("http://") || cleanPayload.startsWith("https://")) {
-      // Case 3: Merchant URL
-      window.location.href = cleanPayload;
+      // Case 3: Normal Website URL
+      // Use window.open with _blank to ensure it opens in the phone's native browser (Safari/Chrome)
+      // rather than trapping the user inside the fullscreen PWA view!
+      window.open(cleanPayload, "_blank");
     } else {
       // Case 4: Fallback
       try {
