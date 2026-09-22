@@ -64,14 +64,11 @@ export default function Home() {
       /^\d{20,}$/.test(cleanPayload)
     ) {
       // Case 2: Bank / EMVCo / BharatQR (e.g. South Indian Bank, HDFC, SBI, Paytm BharatQR)
-      const parsedUpi = parseEmvcoQr(cleanPayload);
-      if (parsedUpi) {
-        redirectWithGpayIntent(parsedUpi);
-      } else {
-        const encodedPayload = encodeURIComponent(cleanPayload);
-        const url = `upi://pay?qrPayload=${encodedPayload}`;
-        redirectWithGpayIntent(url);
-      }
+      // We must pass the raw payload using qrPayload so GPay can securely parse it internally.
+      // Manual extraction strips merchant signatures and Terminal IDs, causing the bank to reject the transaction after PIN entry!
+      const encodedPayload = encodeURIComponent(cleanPayload);
+      const url = `upi://pay?qrPayload=${encodedPayload}`;
+      redirectWithGpayIntent(url);
     } else if (cleanPayload.startsWith("http://") || cleanPayload.startsWith("https://")) {
       // Case 3: Merchant URL
       window.location.href = cleanPayload;
