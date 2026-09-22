@@ -44,12 +44,18 @@ export default function Home() {
     const cleanPayload = decodedText.trim();
     const isAndroid = /Android/i.test(navigator.userAgent);
 
-    const redirectWithGpayIntent = (url: string) => {
+    const redirectWithGpayIntent = (rawUrl: string) => {
+      // Append mode=01 (QR Code scan) to prevent NPCI from blocking P2P transactions.
+      // Without this, GPay assumes mode=04 (Intent/Deep-link) which is strictly restricted for P2P!
+      let url = rawUrl;
+      if (!url.includes("mode=")) {
+        url = url.includes("?") ? `${url}&mode=01` : `${url}?mode=01`;
+      }
+
       if (isAndroid) {
         const intentUrl = url.replace("upi://", "intent://") + "#Intent;package=com.google.android.apps.nbu.paisa.user;scheme=upi;end";
         window.location.href = intentUrl;
       } else {
-        // Use gpay:// custom scheme on iOS to bypass WhatsApp and go directly to the amount screen
         const iosUrl = url.replace("upi://", "gpay://upi/");
         window.location.href = iosUrl;
       }
