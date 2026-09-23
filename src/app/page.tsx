@@ -46,7 +46,6 @@ export default function Home() {
 
     const redirectWithGpayIntent = (rawUrl: string) => {
       // Append mode=01 (QR Code scan) to prevent NPCI from blocking P2P transactions.
-      // Without this, GPay assumes mode=04 (Intent/Deep-link) which is strictly restricted for P2P!
       let url = rawUrl;
       if (!url.includes("mode=")) {
         url = url.includes("?") ? `${url}&mode=01` : `${url}?mode=01`;
@@ -56,6 +55,7 @@ export default function Home() {
         const intentUrl = url.replace("upi://", "intent://") + "#Intent;package=com.google.android.apps.nbu.paisa.user;scheme=upi;end";
         window.location.href = intentUrl;
       } else {
+        // Use gpay:// custom scheme on iOS to strictly open Google Pay instead of WhatsApp
         const iosUrl = url.replace("upi://", "gpay://upi/");
         window.location.href = iosUrl;
       }
@@ -69,12 +69,15 @@ export default function Home() {
       cleanPayload.startsWith("000202") || 
       /^\d{20,}$/.test(cleanPayload)
     ) {
-      // Case 2: Bank / EMVCo / BharatQR (e.g. South Indian Bank, HDFC, SBI, Paytm BharatQR)
-      // We must pass the raw payload using qrPayload so GPay can securely parse it internally.
-      // Manual extraction strips merchant signatures and Terminal IDs, causing the bank to reject the transaction after PIN entry!
-      const encodedPayload = encodeURIComponent(cleanPayload);
-      const url = `upi://pay?qrPayload=${encodedPayload}`;
-      redirectWithGpayIntent(url);
+      // Case 2: Bank / EMVCo / BharatQR
+      // As per standard NPCI specs, we must extract the parameters and construct a standard upi://pay link.
+      // Google Pay iOS fails to extract the receiver UPI ID if we just pass the raw qrPayload.
+      const parsedUpi = parseEmvcoQr(cleanPayload);
+      if (parsedUpi) {
+        redirectWithGpayIntent(parsedUpi);
+      } else {
+        showToast("No UPI ID found in this QR code", "error");
+      }
     } else if (cleanPayload.startsWith("http://") || cleanPayload.startsWith("https://")) {
       // Case 3: Normal Website URL
       // Use window.open with _blank to ensure it opens in the phone's native browser (Safari/Chrome)

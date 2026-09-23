@@ -37,13 +37,14 @@ export function parseEmvcoQr(payload: string): string | null {
           if (isNaN(subLen) || subLen < 0 || j + 4 + subLen > subPayload.length) break;
           
           const subVal = subPayload.substring(j + 4, j + 4 + subLen);
-          // Tag 01 usually contains the VPA (e.g. merchant@bank)
-          if (subTag === "01" && (subVal.includes("@") || !upiId)) {
+          // VPA is usually in 01 or 03, but let's just aggressively find any string with '@'
+          if (subVal.includes("@")) {
             upiId = subVal;
+            break;
           }
           j += 4 + subLen;
         }
-        if (upiId && upiId.includes("@")) {
+        if (upiId) {
           break;
         }
       }
