@@ -55,8 +55,8 @@ export default function Home() {
         const intentUrl = url.replace("upi://", "intent://") + "#Intent;package=com.google.android.apps.nbu.paisa.user;scheme=upi;end";
         window.location.href = intentUrl;
       } else {
-        // Use gpay:// custom scheme on iOS to strictly open Google Pay instead of WhatsApp
-        const iosUrl = url.replace("upi://", "gpay://upi/");
+        // Use navi:// custom scheme on iOS to strictly open Navi instead of Google Pay
+        const iosUrl = url.replace("upi://", "navi://upi/");
         window.location.href = iosUrl;
       }
     };
@@ -87,13 +87,13 @@ export default function Home() {
       // Case 4: Fallback
       try {
         await navigator.clipboard.writeText(cleanPayload);
-        showToast("QR copied! Opening GPay...");
+        showToast("QR copied! Opening Navi...");
         
         setTimeout(() => {
           if (isAndroid) {
             window.location.href = "intent://#Intent;package=com.google.android.apps.nbu.paisa.user;end";
           } else {
-            window.location.href = "gpay://";
+            window.location.href = "navi://";
           }
         }, 1000);
       } catch (err) {
