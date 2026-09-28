@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Html5Qrcode, CameraDevice } from "html5-qrcode";
-import { Camera, Check, AlertCircle, RefreshCw } from "lucide-react";
+import { Camera, Check, AlertCircle, RefreshCw, Upload } from "lucide-react";
 import { parseEmvcoQr } from "@/utils/emvco";
 import pkg from "../../package.json";
 
@@ -15,6 +15,29 @@ export default function Home() {
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      if (isScanning) await stopScanner();
+      setStatus("Scanning image...");
+      
+      const html5QrCode = new Html5Qrcode("reader");
+      const decodedText = await html5QrCode.scanFile(file, true);
+      html5QrCode.clear();
+      
+      handleScanSuccess(decodedText);
+    } catch (err) {
+      console.error(err);
+      setErrorMsg("No QR code found in image.");
+      setStatus("Error");
+    }
+    
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   const showToast = (message: string, type: "success" | "error" = "success") => {
     setToast({ message, type });
@@ -44,7 +67,7 @@ export default function Home() {
     const cleanPayload = decodedText.trim();
     const isAndroid = /Android/i.test(navigator.userAgent);
 
-    const redirectWithGpayIntent = (rawUrl: string) => {
+    const redirectWithGpayIntent = (rawUrl: string, rawPayload: string = "") => {
       let url = rawUrl;
       // Append mode=01 (QR Code scan) to prevent NPCI from blocking P2P transactions.
       if (!url.includes("mode=")) {
@@ -55,16 +78,15 @@ export default function Home() {
         const intentUrl = url.replace("upi://", "intent://") + "#Intent;package=com.google.android.apps.nbu.paisa.user;scheme=upi;end";
         window.location.href = intentUrl;
       } else {
-        // Use the legacy Google Pay (Tez) scheme for iOS.
-        // This is proven to reliably parse the pa (UPI ID) parameter without dropping it.
-        const iosUrl = url.replace("upi://", "tez://upi/");
-        window.location.href = iosUrl;
+        // Use standard Native iOS UPI scheme
+        // iOS will prompt the user to choose an app, or open their default UPI app.
+        window.location.href = url;
       }
     };
 
     if (cleanPayload.startsWith("upi://")) {
       // Case 1: Standard UPI Link
-      redirectWithGpayIntent(cleanPayload);
+      redirectWithGpayIntent(cleanPayload, cleanPayload);
     } else if (
       cleanPayload.startsWith("000201") || 
       cleanPayload.startsWith("000202") || 
@@ -73,7 +95,7 @@ export default function Home() {
       // Case 2: Bank / EMVCo / BharatQR
       const parsedUpi = parseEmvcoQr(cleanPayload);
       if (parsedUpi) {
-        redirectWithGpayIntent(parsedUpi);
+        redirectWithGpayIntent(parsedUpi, cleanPayload);
       } else {
         showToast("No UPI ID found in this QR code", "error");
       }
@@ -255,24 +277,41 @@ export default function Home() {
             </div>
           </div>
 
-          <button
-            onClick={isScanning ? stopScanner : startScanner}
-            className={`w-full py-3.5 px-4 rounded-xl font-medium transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${
-              isScanning 
-                ? "bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20" 
-                : "bg-teal-500 text-neutral-950 hover:bg-teal-400 shadow-[0_0_20px_rgba(20,184,166,0.3)]"
-            }`}
-          >
-            {isScanning ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" /> Stop Scanning
-              </>
-            ) : (
-              <>
-                <Camera className="w-4 h-4" /> Start 2x Camera
-              </>
-            )}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={isScanning ? stopScanner : startScanner}
+              className={`flex-1 py-3.5 px-4 rounded-xl font-medium transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${
+                isScanning 
+                  ? "bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20" 
+                  : "bg-teal-500 text-neutral-950 hover:bg-teal-400 shadow-[0_0_20px_rgba(20,184,166,0.3)]"
+              }`}
+            >
+              {isScanning ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" /> Stop
+                </>
+              ) : (
+                <>
+                  <Camera className="w-4 h-4" /> Start
+                </>
+              )}
+            </button>
+            
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="bg-neutral-800 text-neutral-200 border border-neutral-700 hover:bg-neutral-700 px-4 py-3.5 rounded-xl font-medium transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+            >
+              <Upload className="w-4 h-4" />
+              Upload
+            </button>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleFileUpload} 
+              accept="image/jpeg, image/png" 
+              className="hidden" 
+            />
+          </div>
 
           <div className="flex items-center justify-between pt-2 border-t border-neutral-800 text-sm">
             <span className="text-neutral-500">Status</span>
