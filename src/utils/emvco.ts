@@ -39,7 +39,7 @@ export function parseEmvcoQr(payload: string): string | null {
           const subVal = subPayload.substring(j + 4, j + 4 + subLen);
           // VPA is usually in 01 or 03, but let's just aggressively find any string with '@'
           if (subVal.includes("@")) {
-            upiId = subVal;
+            upiId = subVal.trim();
             break;
           }
           j += 4 + subLen;
@@ -50,10 +50,10 @@ export function parseEmvcoQr(payload: string): string | null {
       }
     }
 
-    const merchantName = tags["59"] || "";
-    const mcc = tags["52"] || "";
-    const amount = tags["54"] || "";
-    const currency = tags["53"] || "356";
+    const merchantName = tags["59"]?.trim() || "";
+    const mcc = tags["52"]?.trim() || "";
+    const amount = tags["54"]?.trim() || "";
+    const currency = tags["53"]?.trim() || "356";
     const currencyCode = currency === "356" ? "INR" : currency;
 
     if (!upiId) {
