@@ -55,8 +55,9 @@ export default function Home() {
         const intentUrl = url.replace("upi://", "intent://") + "#Intent;package=com.google.android.apps.nbu.paisa.user;scheme=upi;end";
         window.location.href = intentUrl;
       } else {
-        // Force Google Pay on iOS using the custom gpay:// scheme
-        const iosUrl = url.replace("upi://", "gpay://upi/");
+        // Use the official Google Pay Universal Link for iOS.
+        // This bypasses WhatsApp and reliably passes all parameters (including UPI ID) to the app.
+        const iosUrl = url.replace("upi://pay", "https://gpay.app.goo.gl/pay");
         window.location.href = iosUrl;
       }
     };
