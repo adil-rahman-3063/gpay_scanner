@@ -67,7 +67,39 @@ export default function Home() {
     const cleanPayload = decodedText.trim();
     const isAndroid = /Android/i.test(navigator.userAgent);
 
-    const redirectWithGpayIntent = (rawUrl: string, rawPayload: string = "") => {
+    const copyUpiAndOpenGpay = async (urlToParse: string, rawPayload: string = "") => {
+      try {
+        // Extract the UPI ID (pa parameter) from the standard UPI URL
+        const match = urlToParse.match(/[?&]pa=([^&]+)/);
+        const upiId = match ? decodeURIComponent(match[1]) : null;
+
+        if (upiId) {
+          await navigator.clipboard.writeText(upiId);
+          showToast("Copied UPI ID! Paste in GPay.");
+        } else {
+          await navigator.clipboard.writeText(rawPayload || urlToParse);
+          showToast("Copied QR info! Opening GPay...");
+        }
+
+        // Wait a brief moment for the toast to be visible, then open GPay Home
+        setTimeout(() => {
+          if (isAndroid) {
+            window.location.href = "intent://#Intent;package=com.google.android.apps.nbu.paisa.user;end";
+          } else {
+            window.location.href = "gpay://";
+          }
+        }, 1200);
+      } catch (err) {
+        showToast("Failed to copy text", "error");
+        setTimeout(() => {
+          window.location.href = isAndroid 
+            ? "intent://#Intent;package=com.google.android.apps.nbu.paisa.user;end" 
+            : "gpay://";
+        }, 1000);
+      }
+    };
+
+    const openNativeUpiLink = (rawUrl: string) => {
       let url = rawUrl;
       // Append mode=01 (QR Code scan) to prevent NPCI from blocking P2P transactions.
       if (!url.includes("mode=")) {
@@ -75,18 +107,15 @@ export default function Home() {
       }
 
       if (isAndroid) {
-        const intentUrl = url.replace("upi://", "intent://") + "#Intent;package=com.google.android.apps.nbu.paisa.user;scheme=upi;end";
-        window.location.href = intentUrl;
+        window.location.href = url.replace("upi://", "intent://") + "#Intent;package=com.google.android.apps.nbu.paisa.user;scheme=upi;end";
       } else {
-        // Use standard Native iOS UPI scheme
-        // iOS will prompt the user to choose an app, or open their default UPI app.
         window.location.href = url;
       }
     };
 
     if (cleanPayload.startsWith("upi://")) {
-      // Case 1: Standard UPI Link
-      redirectWithGpayIntent(cleanPayload, cleanPayload);
+      // Case 1: Standard UPI Link (Let it open natively, even if it's WhatsApp)
+      openNativeUpiLink(cleanPayload);
     } else if (
       cleanPayload.startsWith("000201") || 
       cleanPayload.startsWith("000202") || 
@@ -95,7 +124,7 @@ export default function Home() {
       // Case 2: Bank / EMVCo / BharatQR
       const parsedUpi = parseEmvcoQr(cleanPayload);
       if (parsedUpi) {
-        redirectWithGpayIntent(parsedUpi, cleanPayload);
+        copyUpiAndOpenGpay(parsedUpi, cleanPayload);
       } else {
         showToast("No UPI ID found in this QR code", "error");
       }
@@ -103,20 +132,8 @@ export default function Home() {
       // Case 3: Normal Website URL
       window.open(cleanPayload, "_blank");
     } else {
-      // Case 4: Fallback (Copy text)
-      (async () => {
-        try {
-          await navigator.clipboard.writeText(cleanPayload);
-          showToast("QR copied! Opening GPay...");
-          setTimeout(() => {
-            window.location.href = isAndroid 
-              ? "intent://#Intent;package=com.google.android.apps.nbu.paisa.user;end" 
-              : "gpay://";
-          }, 1000);
-        } catch (err) {
-          showToast("Failed to copy text", "error");
-        }
-      })();
+      // Case 4: Fallback
+      copyUpiAndOpenGpay(cleanPayload, cleanPayload);
     }
   }, [stopScanner]);
 
