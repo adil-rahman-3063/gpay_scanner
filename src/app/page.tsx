@@ -67,6 +67,32 @@ export default function Home() {
     const cleanPayload = decodedText.trim();
     const isAndroid = /Android/i.test(navigator.userAgent);
 
+    const copyToClipboard = async (text: string) => {
+      if (navigator.clipboard && window.isSecureContext) {
+        try {
+          await navigator.clipboard.writeText(text);
+          return true;
+        } catch (err) {}
+      }
+      // Fallback for iOS Safari when inside async callbacks
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      textArea.style.top = "-999999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        return true;
+      } catch (err) {
+        return false;
+      } finally {
+        textArea.remove();
+      }
+    };
+
     const copyUpiAndOpenGpay = async (urlToParse: string, rawPayload: string = "") => {
       try {
         // Extract the UPI ID (pa parameter) from the standard UPI URL
@@ -74,10 +100,10 @@ export default function Home() {
         const upiId = match ? decodeURIComponent(match[1]) : null;
 
         if (upiId) {
-          await navigator.clipboard.writeText(upiId);
+          await copyToClipboard(upiId);
           showToast("Copied UPI ID! Paste in GPay.");
         } else {
-          await navigator.clipboard.writeText(rawPayload || urlToParse);
+          await copyToClipboard(rawPayload || urlToParse);
           showToast("Copied QR info! Opening GPay...");
         }
 
@@ -104,7 +130,7 @@ export default function Home() {
         const match = urlToParse.match(/[?&]pa=([^&]+)/);
         const upiId = match ? decodeURIComponent(match[1]) : null;
         if (upiId) {
-          await navigator.clipboard.writeText(upiId);
+          await copyToClipboard(upiId);
           showToast("Copied UPI ID to clipboard!");
         }
       } catch (err) {
