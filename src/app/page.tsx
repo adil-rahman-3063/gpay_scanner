@@ -99,9 +99,24 @@ export default function Home() {
       }
     };
 
+    const copyUpiIfPresent = async (urlToParse: string) => {
+      try {
+        const match = urlToParse.match(/[?&]pa=([^&]+)/);
+        const upiId = match ? decodeURIComponent(match[1]) : null;
+        if (upiId) {
+          await navigator.clipboard.writeText(upiId);
+          showToast("Copied UPI ID to clipboard!");
+        }
+      } catch (err) {
+        console.warn("Silent copy failed", err);
+      }
+    };
+
     if (cleanPayload.startsWith("upi://")) {
       // Case 1: Standard UPI Link (Raw, unmodified, let OS handle natively)
-      window.location.href = cleanPayload;
+      copyUpiIfPresent(cleanPayload).finally(() => {
+        window.location.href = cleanPayload;
+      });
     } else if (
       cleanPayload.startsWith("000201") || 
       cleanPayload.startsWith("000202") || 
