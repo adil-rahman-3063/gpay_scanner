@@ -107,21 +107,21 @@ export default function Home() {
           showToast("Copied QR info! Opening GPay...");
         }
 
-        // Wait a brief moment for the toast to be visible, then open GPay Home
+        // Wait 5 seconds for the user to see the toast, then open GPay Home
         setTimeout(() => {
           if (isAndroid) {
             window.location.href = "intent://#Intent;package=com.google.android.apps.nbu.paisa.user;end";
           } else {
             window.location.href = "gpay://";
           }
-        }, 1200);
+        }, 5000);
       } catch (err) {
         showToast("Failed to copy text", "error");
         setTimeout(() => {
           window.location.href = isAndroid 
             ? "intent://#Intent;package=com.google.android.apps.nbu.paisa.user;end" 
             : "gpay://";
-        }, 1000);
+        }, 5000);
       }
     };
 
