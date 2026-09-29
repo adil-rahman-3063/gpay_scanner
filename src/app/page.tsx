@@ -99,23 +99,9 @@ export default function Home() {
       }
     };
 
-    const openNativeUpiLink = (rawUrl: string) => {
-      let url = rawUrl;
-      // Append mode=01 (QR Code scan) to prevent NPCI from blocking P2P transactions.
-      if (!url.includes("mode=")) {
-        url = url.includes("?") ? `${url}&mode=01` : `${url}?mode=01`;
-      }
-
-      if (isAndroid) {
-        window.location.href = url.replace("upi://", "intent://") + "#Intent;package=com.google.android.apps.nbu.paisa.user;scheme=upi;end";
-      } else {
-        window.location.href = url;
-      }
-    };
-
     if (cleanPayload.startsWith("upi://")) {
-      // Case 1: Standard UPI Link (Let it open natively, even if it's WhatsApp)
-      openNativeUpiLink(cleanPayload);
+      // Case 1: Standard UPI Link (Raw, unmodified, let OS handle natively)
+      window.location.href = cleanPayload;
     } else if (
       cleanPayload.startsWith("000201") || 
       cleanPayload.startsWith("000202") || 
